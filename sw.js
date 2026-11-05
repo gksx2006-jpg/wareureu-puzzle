@@ -1,5 +1,5 @@
-// 와르르 연쇄 오프라인 저장 (버전 202611051404)
-const CACHE = 'wareureu-202611051404';
+// 와르르 연쇄 오프라인 저장 (버전 202611051413)
+const CACHE = 'wareureu-202611051413';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {

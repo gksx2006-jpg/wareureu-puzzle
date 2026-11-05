@@ -1,6 +1,42 @@
 {
+  "id": "./",
   "name": "와르르 연쇄",
   "short_name": "와르르",
+  "categories": [
+    "games",
+    "puzzle",
+    "entertainment"
+  ],
+  "screenshots": [
+    {
+      "src": "screens/1.jpg",
+      "sizes": "675x1200",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "블록이 줄줄이 날아가는 5연쇄"
+    },
+    {
+      "src": "screens/2.jpg",
+      "sizes": "675x1200",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "막히면 힌트로 칠 블록 보기"
+    },
+    {
+      "src": "screens/3.jpg",
+      "sizes": "675x1200",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "첫 레벨"
+    },
+    {
+      "src": "screens/4.jpg",
+      "sizes": "675x1200",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "최소 탭으로 깨면 별 3개"
+    }
+  ],
   "description": "블록을 톡 치면 화살표 방향으로 날아가 부딪힌 블록을 줄줄이 날려 보내는 연쇄 퍼즐.",
   "lang": "ko",
   "start_url": "./",
