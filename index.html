@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>와르르 연쇄</title>
+<meta name="description" content="블록을 톡 치면 화살표 방향으로 날아가 부딪힌 블록을 줄줄이 날려 보내는 연쇄 퍼즐.">
+<meta name="theme-color" content="#141a33">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="와르르">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}*{box-sizing:border-box}img{max-width:100%}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&display=swap">
+<style>
+/* 레이아웃: 한 화면 게임. 위 상태줄 · 가운데 정사각 펠트 판 · 아래 조작 버튼. 밤색 펠트 위 장난감 블록 한 가지 세계로 고정 */
+:root{
+  color-scheme: dark;
+  --night:#141a33;
+  --felt:#1f2850;
+  --felt-hi:#28326a;
+  --felt-line:#33407a;
+  --chalk:#f3efe6;
+  --chalk-dim:#a9b0d1;
+  --up:#ff7a59;
+  --right:#ffc53d;
+  --down:#4cc2ff;
+  --left:#46d39a;
+  --ink:#1a1530;
+  --shade:rgb(6 8 20 / .72);
+  --f-display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+[hidden]{display:none!important}
+html{height:100%;box-sizing:border-box}
+body{height:100%;margin:0;background:var(--night);color:var(--chalk);font-family:var(--f-body);font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--right);outline-offset:2px}
+.app{height:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-block:12px 14px;box-sizing:border-box}
+
+.bar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.title{font-family:var(--f-display);font-size:22px;letter-spacing:.02em;margin:0;color:var(--chalk)}
+.title span{color:var(--right)}
+.chip{display:flex;align-items:center;gap:6px;background:var(--felt);border:2px solid var(--felt-line);border-radius:999px;padding:6px 12px;font-weight:700}
+.chip b{font-family:var(--f-display);font-weight:400;font-size:17px;font-variant-numeric:tabular-nums}
+.chip .caret{color:var(--chalk-dim);font-size:11px}
+.small{background:none;border:2px solid var(--felt-line);border-radius:999px;padding:6px 12px;color:var(--chalk-dim);font-size:13px}
+
+.status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.taps{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--chalk-dim)}
+.pips{display:flex;gap:5px}
+.pip{width:20px;height:9px;border-radius:5px;background:var(--right)}
+.pip.extra{background:transparent;box-shadow:inset 0 0 0 2px var(--right)}
+.pip.used{background:var(--felt-line);box-shadow:none}
+.goal{font-size:13px;color:var(--chalk-dim)}
+.goal b{color:var(--right);font-family:var(--f-display);font-weight:400;font-size:15px;letter-spacing:.03em}
+.tip{margin:0;min-height:1.5em;font-size:14px;color:var(--chalk);text-align:center;text-wrap:balance}
+
+.wrap{flex:1;min-height:0;display:grid;place-items:center}
+.board{position:relative;border-radius:18px;background-color:var(--felt);
+  background-image:radial-gradient(circle at center,var(--felt-line) 0 7%,transparent 8%);
+  overflow:hidden;box-shadow:0 0 0 2px var(--felt-line),0 18px 40px rgb(0 0 0 / .4);touch-action:manipulation}
+.layer{position:absolute;inset:0}
+.blk{position:absolute;padding:calc(var(--cell) * .07);box-sizing:border-box;cursor:pointer;will-change:transform}
+.face{width:100%;height:100%;border-radius:24%;background:var(--c);display:grid;place-items:center;
+  box-shadow:inset 0 calc(var(--cell) * -.09) 0 rgb(0 0 0 / .22),inset 0 calc(var(--cell) * .04) 0 rgb(255 255 255 / .35),0 calc(var(--cell) * .05) calc(var(--cell) * .09) rgb(0 0 0 / .4);
+  transition:transform .08s}
+.face svg{width:54%;height:54%;transform:rotate(var(--rot));fill:var(--ink)}
+.blk:active .face{transform:scale(.9)}
+.blk.hint .face{animation:hint .9s ease-in-out infinite}
+@keyframes hint{50%{transform:scale(1.1);box-shadow:0 0 0 4px var(--chalk),0 0 22px var(--chalk)}}
+.spark{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:3px;pointer-events:none}
+.combo{position:absolute;left:0;right:0;top:12%;text-align:center;font-family:var(--f-display);font-size:clamp(34px,11vw,58px);
+  color:var(--right);text-shadow:0 4px 0 var(--ink),0 0 24px rgb(255 197 61 / .5);pointer-events:none;opacity:0}
+.combo.show{animation:combo .9s ease-out forwards}
+@keyframes combo{0%{opacity:0;transform:scale(.4) rotate(-6deg)}18%{opacity:1;transform:scale(1.15) rotate(2deg)}35%{transform:scale(1) rotate(0)}75%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
+
+.ctrl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ctrl button{height:50px;border-radius:14px;background:var(--felt);border:2px solid var(--felt-line);font-weight:700;font-size:15px}
+.ctrl button:disabled{opacity:.4;cursor:default}
+.ctrl #btnHint{border-color:var(--right);color:var(--right)}
+
+.ov{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:var(--shade);backdrop-filter:blur(3px);
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.card{width:min(340px,100%);background:var(--felt);border:2px solid var(--felt-line);border-radius:22px;padding:24px 20px 20px;text-align:center;display:flex;flex-direction:column;gap:14px;animation:rise .28s ease-out}
+@keyframes rise{from{transform:translateY(24px) scale(.96);opacity:0}}
+.card h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:28px;text-wrap:balance}
+.card p{margin:0;color:var(--chalk-dim);font-size:15px}
+.stars{display:flex;justify-content:center;gap:6px;font-size:44px;line-height:1}
+.stars i{font-style:normal;color:var(--felt-line)}
+.stars i.on{color:var(--right);animation:star .4s ease-out backwards}
+@keyframes star{from{transform:scale(0) rotate(-40deg)}}
+.btns{display:flex;flex-direction:column;gap:8px}
+.btn{height:50px;border-radius:14px;border:2px solid var(--felt-line);background:var(--felt-hi);font-weight:700;font-size:16px}
+.btn.main{background:var(--right);border-color:var(--right);color:var(--ink);font-family:var(--f-display);font-weight:400;font-size:19px}
+.gridbox{max-height:min(56vh,460px);overflow-y:auto;padding:2px;margin:-2px;overscroll-behavior:contain}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.lv{aspect-ratio:1;border-radius:12px;border:2px solid var(--felt-line);background:var(--felt-hi);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0}
+.lv b{font-family:var(--f-display);font-weight:400;font-size:20px;font-variant-numeric:tabular-nums}
+.lv small{font-size:10px;color:var(--right);letter-spacing:.05em}
+.lv.cur{border-color:var(--right)}
+.lv:disabled{opacity:.35;cursor:default}
+@media (prefers-reduced-motion: reduce){.combo.show,.card,.stars i.on,.blk.hint .face{animation-duration:.01s}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <button id="btnLevels" class="chip" aria-label="레벨 고르기">레벨 <b id="lvNum">1</b><span class="caret">▼</span></button>
+    <h1 class="title">와르르 <span>연쇄</span></h1>
+    <button id="btnSound" class="small">소리 켬</button>
+  </header>
+  <div class="status">
+    <div class="taps">남은 탭 <div id="pips" class="pips"></div></div>
+    <div id="goal" class="goal"></div>
+  </div>
+  <p id="tip" class="tip"></p>
+  <div id="wrap" class="wrap">
+    <div id="board" class="board"><div id="layer" class="layer"></div><div id="combo" class="combo"></div></div>
+  </div>
+  <nav class="ctrl">
+    <button id="btnUndo">되돌리기</button>
+    <button id="btnReset">처음부터</button>
+    <button id="btnHint">힌트</button>
+  </nav>
+</div>
+<div id="ov" class="ov" hidden><div id="card" class="card"></div></div>
+
+<script>
+const LEVELS = [{"s":5,"par":1,"b":[[4,0,1],[4,1,3],[4,2,3]]},{"s":5,"par":1,"b":[[0,4,3],[1,4,0],[1,2,1],[0,2,2]]},{"s":5,"par":2,"b":[[4,2,0],[4,1,1],[4,0,1],[3,2,2],[4,3,3]]},{"s":6,"par":2,"b":[[1,0,3],[0,0,2],[2,0,0],[0,2,3],[1,1,3],[2,2,0]]},{"s":6,"par":2,"b":[[4,0,3],[5,0,0],[4,2,3],[2,0,2],[2,2,3],[4,4,3],[0,2,2]]},{"s":6,"par":2,"b":[[4,3,0],[1,3,3],[0,3,2],[2,3,0],[2,5,3],[2,4,3],[1,4,3],[1,5,3]]},{"s":6,"par":3,"b":[[0,1,0],[1,0,0],[0,2,3],[0,0,1],[1,2,3],[3,0,0],[2,0,0],[2,1,0],[2,3,3]]},{"s":6,"par":3,"b":[[3,4,3],[1,4,0],[3,5,3],[2,5,2],[2,4,0],[5,4,0],[2,3,1],[4,4,0],[1,5,3],[4,5,0]]},{"s":7,"par":3,"b":[[1,0,1],[1,6,1],[2,6,1],[3,6,0],[3,4,1],[0,6,2],[1,1,3],[2,5,1],[1,4,1],[5,6,0],[1,2,3]]},{"s":7,"par":3,"b":[[4,0,0],[1,6,1],[1,5,1],[2,5,0],[3,6,0],[2,6,0],[1,4,1],[4,1,3],[4,3,3],[0,5,2],[2,4,1],[3,5,1]]},{"s":7,"par":4,"b":[[2,0,3],[0,4,2],[6,6,2],[3,5,1],[4,5,0],[2,1,3],[0,2,1],[4,6,2],[4,0,0],[0,0,1],[3,0,0],[1,4,0],[2,2,3]]},{"s":7,"par":4,"b":[[0,5,2],[3,5,1],[5,5,1],[6,5,0],[1,5,0],[2,5,0],[3,3,1],[0,6,3],[5,3,1],[1,4,1],[3,2,1],[6,6,3],[0,4,2],[4,5,0]]},{"s":7,"par":4,"b":[[2,2,0],[5,5,1],[1,2,2],[1,0,1],[5,4,1],[2,3,3],[3,3,0],[0,2,2],[1,1,1],[2,1,1],[2,4,3],[4,4,2],[6,4,0],[6,5,0],[4,5,3]]},{"s":7,"par":4,"b":[[3,3,3],[2,0,1],[3,2,3],[5,6,2],[6,3,1],[2,3,2],[5,5,1],[2,2,2],[5,3,0],[2,4,3],[4,2,0],[6,5,3],[3,4,3],[6,4,1],[5,2,1],[4,0,0]]},{"s":7,"par":4,"b":[[3,3,3],[2,0,3],[4,4,0],[6,0,3],[3,2,1],[4,3,1],[6,1,3],[3,0,1],[2,4,2],[5,3,0],[2,6,3],[5,4,0],[1,0,2],[3,4,0],[6,3,0],[1,1,3]]},{"s":7,"par":4,"b":[[0,3,0],[5,5,3],[1,3,0],[1,1,1],[3,5,2],[3,3,0],[3,2,1],[0,1,1],[5,6,3],[0,5,3],[1,2,3],[1,5,0],[4,3,0],[2,2,0]]},{"s":7,"par":4,"b":[[3,0,0],[2,4,2],[6,5,2],[4,5,3],[3,1,3],[4,6,3],[2,3,1],[1,3,2],[5,5,2],[4,0,0],[4,1,3],[4,4,0],[5,1,0],[4,3,3],[6,1,0]]},{"s":7,"par":4,"b":[[5,0,2],[3,2,2],[4,5,3],[0,3,2],[3,1,1],[4,0,2],[4,3,1],[5,1,0],[2,2,2],[0,4,3],[3,0,1],[3,5,2],[3,3,3],[2,3,0],[6,3,0]]},{"s":7,"par":5,"b":[[1,0,3],[4,0,0],[2,4,1],[3,3,2],[0,0,2],[1,4,2],[3,2,1],[3,4,3],[3,1,1],[3,0,0],[2,3,2],[3,5,3],[4,5,0],[1,5,2],[0,2,3],[1,2,2]]},{"s":7,"par":5,"b":[[0,6,1],[6,2,0],[3,2,2],[4,3,3],[4,5,3],[5,3,0],[4,4,1],[5,2,2],[1,2,2],[2,2,2],[2,3,3],[1,6,0],[6,3,3],[5,5,3],[6,4,0],[0,5,1]]},{"s":7,"par":4,"b":[[6,3,2],[6,1,3],[6,5,3],[6,2,1],[5,3,2],[4,3,2],[5,1,2],[4,1,2],[2,3,2],[4,5,2],[4,4,1],[6,4,0],[2,5,2],[3,5,2],[2,1,2],[5,4,2]]},{"s":7,"par":5,"b":[[2,5,0],[0,5,2],[1,1,3],[5,1,1],[6,1,3],[1,5,0],[3,1,2],[6,3,3],[2,4,1],[2,1,0],[3,3,3],[3,5,0],[0,4,1],[1,6,3],[4,1,2],[1,0,1],[4,3,2]]},{"s":7,"par":4,"b":[[1,3,0],[1,5,3],[2,5,0],[2,4,1],[2,6,3],[3,5,0],[4,6,0],[1,2,1],[4,5,1],[2,3,0],[2,1,1],[1,4,3],[0,1,2],[1,1,0],[2,2,3],[3,1,0],[0,4,2]]},{"s":7,"par":5,"b":[[4,1,2],[5,4,2],[0,2,0],[2,5,0],[0,1,1],[5,1,0],[5,2,1],[2,4,1],[4,2,2],[2,6,3],[4,4,3],[3,5,0],[4,5,0],[1,2,0],[2,2,2],[4,6,0],[0,3,3]]},{"s":7,"par":5,"b":[[1,4,1],[5,0,2],[0,6,1],[1,0,3],[4,3,2],[5,3,2],[0,0,2],[5,1,3],[3,3,2],[5,2,3],[6,0,0],[1,3,1],[0,4,1],[2,3,2],[4,2,2],[2,0,0],[1,1,3]]},{"s":8,"par":4,"b":[[7,7,1],[7,1,0],[6,7,2],[6,5,1],[7,0,1],[7,6,1],[6,6,2],[6,3,1],[5,3,2],[5,1,1],[4,1,2],[7,5,1],[5,2,3],[6,2,0],[5,5,2],[4,6,2]]},{"s":8,"par":5,"b":[[1,5,3],[0,5,2],[5,7,1],[0,4,2],[1,3,1],[2,3,0],[5,5,1],[2,2,1],[3,5,0],[3,6,3],[2,5,2],[2,4,3],[5,3,1],[1,1,1],[3,7,2],[4,3,0]]},{"s":8,"par":5,"b":[[4,0,3],[6,1,1],[1,1,0],[4,1,3],[2,1,2],[7,1,0],[6,2,3],[7,3,3],[3,0,2],[2,0,1],[5,2,2],[4,2,3],[7,0,1],[6,4,3],[1,2,3],[3,1,2],[3,2,3]]},{"s":8,"par":5,"b":[[0,7,3],[0,5,1],[1,7,0],[0,4,1],[2,7,0],[0,3,1],[2,5,1],[1,3,0],[0,2,1],[1,4,0],[2,6,1],[1,6,3],[1,5,1],[3,6,0],[2,3,0],[3,7,0],[2,4,0]]},{"s":8,"par":6,"b":[[2,7,1],[1,3,3],[7,2,0],[6,2,3],[1,5,3],[0,5,2],[2,6,1],[7,4,3],[7,3,3],[1,7,2],[4,2,2],[7,5,3],[0,7,2],[6,3,3],[6,5,2],[7,1,1],[1,6,3]]},{"s":8,"par":5,"b":[[6,0,3],[0,6,2],[6,1,3],[5,0,2],[0,4,1],[1,4,0],[2,6,0],[4,0,2],[1,3,1],[0,7,3],[3,6,0],[2,0,2],[3,5,1],[5,6,0],[2,7,0],[2,2,3],[1,7,0]]},{"s":8,"par":5,"b":[[5,3,2],[7,0,1],[3,6,2],[1,1,1],[7,2,3],[5,5,3],[2,6,2],[1,3,3],[6,0,2],[3,5,1],[6,1,3],[2,1,0],[2,7,3],[5,6,0],[5,0,2],[7,6,0],[4,3,2],[0,3,2]]},{"s":8,"par":5,"b":[[5,2,2],[2,5,3],[0,1,1],[7,5,3],[5,1,1],[2,4,1],[2,2,1],[7,6,3],[2,7,3],[0,2,2],[1,1,0],[3,2,0],[1,7,2],[5,3,3],[3,4,0],[2,0,1],[7,7,3],[1,2,0]]},{"s":8,"par":5,"b":[[0,7,1],[7,4,2],[1,5,0],[5,6,0],[4,5,3],[7,3,1],[0,6,1],[1,4,1],[4,6,3],[6,5,0],[3,5,0],[4,7,3],[2,5,0],[6,6,0],[3,7,2],[0,5,2],[1,7,3],[2,4,0]]},{"s":8,"par":6,"b":[[5,1,0],[6,1,2],[3,7,3],[1,0,2],[0,6,0],[2,0,0],[7,1,0],[4,1,2],[7,0,1],[1,2,3],[6,2,3],[4,7,0],[1,6,0],[5,7,0],[2,6,0],[0,4,1],[1,1,3],[2,2,3]]},{"s":8,"par":5,"b":[[3,6,3],[7,3,0],[2,3,2],[1,4,2],[1,6,3],[2,5,3],[4,3,0],[2,7,3],[7,1,1],[3,3,0],[1,5,2],[6,3,2],[3,5,3],[6,2,1],[2,6,3],[3,4,1],[5,2,2],[5,1,2]]},{"s":8,"par":6,"b":[[5,0,3],[6,6,1],[7,4,1],[7,6,0],[5,1,3],[7,2,1],[4,1,2],[3,0,2],[7,3,3],[7,1,1],[5,3,3],[7,5,3],[6,1,0],[5,4,3],[6,2,2],[4,3,2],[4,2,3],[6,5,1]]},{"s":8,"par":6,"b":[[3,7,0],[1,4,3],[0,5,0],[0,2,2],[3,5,2],[0,3,0],[7,3,1],[1,7,2],[0,6,3],[3,3,1],[3,2,1],[5,2,0],[3,1,1],[2,3,0],[1,2,2],[2,1,2],[5,3,2],[3,6,3]]},{"s":8,"par":6,"b":[[7,6,2],[3,6,0],[7,0,3],[6,4,2],[3,2,0],[0,7,0],[4,7,2],[3,0,1],[2,6,2],[7,4,1],[2,7,0],[4,5,1],[4,2,0],[6,2,1],[3,1,1],[6,3,1],[7,2,3],[4,4,3]]},{"s":8,"par":6,"b":[[6,1,3],[7,1,0],[5,7,3],[0,7,2],[2,5,3],[5,6,0],[4,7,1],[4,5,1],[7,0,1],[2,7,0],[2,6,3],[6,6,0],[5,5,1],[6,3,3],[4,6,1],[3,5,0],[3,3,1],[4,3,1]]},{"s":8,"par":6,"b":[[0,4,0],[4,4,1],[5,2,3],[3,4,0],[2,4,3],[0,6,3],[3,6,3],[1,4,2],[1,6,0],[7,2,0],[4,2,1],[3,5,1],[6,2,2],[5,3,3],[5,6,0],[2,6,2],[5,4,0],[7,0,1]]},{"s":8,"par":6,"b":[[7,2,3],[7,6,2],[2,3,1],[3,2,3],[7,5,1],[2,2,1],[3,3,3],[4,2,0],[4,3,3],[6,2,2],[6,1,1],[7,3,3],[2,5,3],[0,2,2],[3,5,0],[6,3,2],[1,5,2],[4,0,1]]},{"s":8,"par":6,"b":[[0,4,1],[1,3,0],[5,6,0],[1,4,0],[3,2,1],[2,4,1],[6,6,0],[4,4,0],[0,3,1],[4,2,0],[6,2,0],[3,1,1],[6,4,1],[1,1,1],[1,2,2],[6,0,1],[3,0,1],[4,3,3]]},{"s":8,"par":7,"b":[[4,0,3],[5,4,2],[6,4,2],[2,1,0],[6,1,1],[3,2,3],[0,1,0],[6,3,1],[4,2,3],[2,2,2],[4,3,2],[0,0,1],[3,3,3],[7,1,0],[4,4,3],[6,0,1],[0,2,3],[4,1,3]]},{"s":8,"par":6,"b":[[0,6,1],[7,6,2],[7,0,3],[4,7,1],[6,2,3],[6,6,2],[6,7,0],[7,5,1],[7,4,1],[5,0,2],[6,3,3],[5,2,3],[3,7,2],[3,6,1],[0,7,3],[4,6,1],[4,4,1],[3,4,1]]},{"s":8,"par":6,"b":[[1,6,3],[5,2,1],[3,4,0],[1,1,2],[5,4,1],[4,6,1],[7,1,1],[3,6,0],[2,1,0],[2,0,1],[5,3,1],[3,5,3],[6,1,2],[1,5,1],[6,6,0],[2,5,0],[4,4,1],[5,1,2]]},{"s":8,"par":6,"b":[[5,3,0],[2,0,3],[6,7,1],[7,7,0],[7,6,1],[3,3,2],[4,3,2],[5,1,1],[1,0,2],[4,7,2],[7,3,0],[3,1,1],[5,2,1],[2,1,2],[7,5,3],[3,5,3],[6,6,1],[6,3,0]]},{"s":8,"par":6,"b":[[1,7,1],[6,3,2],[2,2,0],[2,3,3],[7,1,1],[0,2,0],[0,1,1],[6,1,2],[0,0,1],[7,3,3],[1,2,0],[1,1,1],[2,0,1],[1,0,1],[6,0,1],[3,2,0],[5,1,2],[1,6,1]]},{"s":8,"par":6,"b":[[4,3,1],[7,0,0],[0,7,2],[3,0,1],[7,4,0],[5,0,2],[1,0,2],[4,2,1],[1,2,3],[2,7,0],[1,3,3],[0,5,1],[5,3,0],[5,4,3],[2,6,1],[7,2,3],[7,5,3],[5,1,1]]},{"s":8,"par":7,"b":[[0,1,0],[6,5,0],[0,4,3],[3,2,0],[7,3,1],[4,0,3],[6,4,1],[6,0,0],[0,0,1],[1,2,2],[0,2,3],[5,0,2],[4,2,3],[7,1,1],[2,4,0],[4,3,3],[6,1,3],[5,3,2]]}];
+const DR = [-1, 0, 1, 0], DC = [0, 1, 0, -1];
+const COLORS = ['var(--up)', 'var(--right)', 'var(--down)', 'var(--left)'];
+const TIPS = {
+  0: '블록을 톡 쳐 보세요. 화살표 쪽으로 날아가요.',
+  1: '날아간 블록이 다른 블록을 치면, 맞은 블록이 이어서 날아가요.',
+  2: '적은 탭으로 판을 비울수록 별이 많아요.',
+  3: '막히면 힌트를 눌러 보세요. 한 판에 한 번 쓸 수 있어요.',
+  19: '이 레벨부터 힌트를 한 판에 2번 쓸 수 있어요.',
+  29: '이 레벨부터 힌트를 한 판에 3번 쓸 수 있어요.'
+};
+const hintMax = i => (i + 1 >= 30 ? 3 : i + 1 >= 20 ? 2 : 1);
+const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 21 12.2h-5.6V21H8.6v-8.8H3z"/></svg>';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+
+let save = loadSave();
+function loadSave() {
+  try { const s = JSON.parse(localStorage.getItem('wareureu.v1')); if (s && s.stars) return s; } catch (e) {}
+  return { stars: {}, mute: false };
+}
+function store() { try { localStorage.setItem('wareureu.v1', JSON.stringify(save)); } catch (e) {} }
+
+let L, li = 0, mask = 0, hist = [], used = 0, busy = false, els = [], dist = null, cellIdx = null, hintsLeft = 1, hintShown = -1;
+const limit = () => L.par + 1;
+const full = () => (1 << L.b.length) - 1;
+const popc = x => { let c = 0; while (x) { x &= x - 1; c++; } return c; };
+
+// 연쇄 계산: 친 블록 → 부딪힌 블록 → … → 판 밖
+function chain(m, i, withEvents) {
+  let alive = m, cur = i; const ev = [];
+  for (;;) {
+    alive &= ~(1 << cur);
+    const [r0, c0, d] = L.b[cur];
+    let r = r0, c = c0, next = -1, moved = 0;
+    for (;;) {
+      const nr = r + DR[d], nc = c + DC[d];
+      if (nr < 0 || nc < 0 || nr >= L.s || nc >= L.s) break;
+      const k = cellIdx[nr * L.s + nc];
+      if (k >= 0 && (alive >> k) & 1) { next = k; break; }
+      r = nr; c = nc; moved++;
+    }
+    if (withEvents) ev.push({ i: cur, d, k: next < 0 ? moved + 1.3 : Math.max(moved, .22), hit: next, r: r0, c: c0 });
+    if (next < 0) return withEvents ? { alive, ev } : alive;
+    cur = next;
+  }
+}
+// 남은 블록 상태에서 판을 비우는 최소 탭 수 (필요한 상태만 계산해 저장)
+function need(m) {
+  if (m === 0) return 0;
+  if (!dist) dist = new Uint8Array(1 << L.b.length);
+  if (dist[m]) return dist[m];
+  let b = 255;
+  for (let i = 0; i < L.b.length; i++) if ((m >> i) & 1) { const v = need(chain(m, i, false)); if (v < b) b = v; }
+  return (dist[m] = b + 1);
+}
+
+function setupLevel(i, keep) {
+  li = i; L = LEVELS[i]; dist = null;
+  cellIdx = new Int16Array(L.s * L.s).fill(-1);
+  L.b.forEach((b, k) => { cellIdx[b[0] * L.s + b[1]] = k; });
+  mask = full(); hist = []; used = 0; hintsLeft = hintMax(i); hintShown = -1;
+  if (keep && typeof keep.mask === 'number') {
+    mask = keep.mask; hist = keep.hist || []; used = keep.used || 0;
+    if (typeof keep.hintsLeft === 'number') hintsLeft = keep.hintsLeft;
+  }
+  buildBoard(); sizeBoard(); updateUI(); setTip(TIPS[li] || '');
+}
+
+function buildBoard() {
+  const layer = $('layer'); layer.innerHTML = ''; els = [];
+  const pct = 100 / L.s;
+  $('board').style.backgroundSize = `${pct}% ${pct}%`;
+  L.b.forEach(([r, c, d], k) => {
+    const el = document.createElement('div');
+    el.className = 'blk';
+    el.style.cssText = `left:${c * pct}%;top:${r * pct}%;width:${pct}%;height:${pct}%;--c:${COLORS[d]};--rot:${d * 90}deg`;
+    el.innerHTML = `<div class="face">${ARROW}</div>`;
+    el.addEventListener('click', () => tap(k));
+    layer.appendChild(el); els.push(el);
+  });
+  syncBoard();
+}
+function syncBoard() {
+  els.forEach((el, k) => {
+    el.getAnimations({ subtree: true }).forEach(a => a.cancel());
+    el.classList.remove('hint');
+    el.hidden = !((mask >> k) & 1);
+  });
+}
+function sizeBoard() {
+  if (!L) return;
+  const w = $('wrap'), side = Math.floor(Math.min(w.clientWidth, w.clientHeight, 540));
+  const b = $('board'); b.style.width = b.style.height = side + 'px';
+  b.style.setProperty('--cell', side / L.s + 'px');
+}
+new ResizeObserver(sizeBoard).observe($('wrap'));
+
+function updateUI() {
+  $('lvNum').textContent = li + 1;
+  const p = $('pips'); p.innerHTML = '';
+  for (let k = 0; k < limit(); k++) {
+    const s = document.createElement('span');
+    s.className = 'pip' + (k === limit() - 1 ? ' extra' : '') + (k >= limit() - used ? ' used' : '');
+    p.appendChild(s);
+  }
+  $('goal').innerHTML = `별 3개 목표 <b>${L.par}번</b>`;
+  $('btnUndo').disabled = busy || !hist.length;
+  $('btnReset').disabled = busy || !hist.length;
+  $('btnHint').disabled = busy || mask === 0 || hintsLeft <= 0;
+  $('btnHint').textContent = hintsLeft > 0 ? `힌트 ${hintsLeft}` : '힌트 없음';
+  $('btnSound').textContent = save.mute ? '소리 끔' : '소리 켬';
+}
+function setTip(t) { $('tip').textContent = t; }
+
+async function tap(i) {
+  if (busy || !((mask >> i) & 1) || used >= limit() || !$('ov').hidden) return;
+  audioInit();
+  els.forEach(e => e.classList.remove('hint'));
+  const { alive, ev } = chain(mask, i, true);
+  hist.push(mask); used++; busy = true; updateUI();
+  sfx.tap();
+  const pops = [];
+  for (let j = 0; j < ev.length; j++) {
+    const e = ev[j], el = els[e.i];
+    const dur = reduce ? 40 : Math.min(460, 90 + 48 * e.k);
+    await el.animate(
+      [{ transform: 'translate(0,0)' }, { transform: `translate(${DC[e.d] * e.k * 100}%,${DR[e.d] * e.k * 100}%)` }],
+      { duration: dur, easing: 'cubic-bezier(.55,0,.9,.5)', fill: 'forwards' }
+    ).finished;
+    if (e.hit >= 0) {
+      sfx.hit(j); buzz(12);
+      burst(e);
+      if (j >= 0) showCombo(j + 2);
+      pops.push(el.firstChild.animate(
+        [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.3)', opacity: .9, offset: .35 }, { transform: 'scale(0)', opacity: 0 }],
+        { duration: reduce ? 30 : 220, fill: 'forwards' }
+      ).finished.then(() => { el.hidden = true; }));
+    } else {
+      el.hidden = true; sfx.exit();
+    }
+  }
+  await Promise.all(pops);
+  mask = alive; busy = false;
+  els.forEach((el, k) => { if (!((mask >> k) & 1)) el.hidden = true; });
+  updateUI();
+  if (li > 3) setTip('');
+  if (mask === 0) setTimeout(win, 280);
+  else if (used >= limit()) setTimeout(fail, 280);
+}
+
+function burst(e) {
+  const s = L.s, layer = $('layer');
+  const x = (e.c + DC[e.d] * e.k + .5 + DC[e.d] * .5) / s * 100;
+  const y = (e.r + DR[e.d] * e.k + .5 + DR[e.d] * .5) / s * 100;
+  const n = reduce ? 0 : 8;
+  for (let k = 0; k < n; k++) {
+    const sp = document.createElement('span');
+    sp.className = 'spark';
+    sp.style.cssText = `left:${x}%;top:${y}%;background:${COLORS[(e.d + k) % 4]}`;
+    layer.appendChild(sp);
+    const a = Math.random() * Math.PI * 2, dd = 28 + Math.random() * 38;
+    sp.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(a) * dd}px,${Math.sin(a) * dd}px) scale(.3) rotate(120deg)`, opacity: 0 }],
+      { duration: 420 + Math.random() * 200, easing: 'cubic-bezier(.2,.7,.3,1)' }).finished.then(() => sp.remove());
+  }
+}
+function showCombo(n) {
+  const c = $('combo');
+  c.textContent = n >= 5 ? `와르르 ${n}연쇄!` : `${n}연쇄!`;
+  c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+}
+
+function undo() {
+  if (busy || !hist.length) return;
+  mask = hist.pop(); used--; closeOv(); syncBoard(); updateUI(); setTip(TIPS[li] || '');
+}
+function reset() {
+  if (busy) return;
+  mask = full(); hist = []; used = 0; closeOv(); syncBoard(); updateUI(); setTip(TIPS[li] || '');
+}
+function hint() {
+  if (busy || mask === 0) return;
+  // 이미 빛나는 블록이 있으면 힌트를 또 쓰지 않음
+  if (hintShown >= 0 && els[hintShown].classList.contains('hint')) return;
+  if (hintsLeft <= 0) return;
+  const n0 = need(mask), left = limit() - used;
+  if (n0 > left) { setTip('지금 상태로는 못 깨요. 되돌리기를 눌러 보세요.'); return; }
+  let pick = -1;
+  for (let i = 0; i < L.b.length; i++) if ((mask >> i) & 1 && need(chain(mask, i, false)) === n0 - 1) { pick = i; break; }
+  if (pick < 0) return;
+  hintsLeft--; hintShown = pick; updateUI();
+  els.forEach(e => e.classList.remove('hint'));
+  els[pick].classList.add('hint');
+  const rest = hintsLeft > 0 ? ` 힌트가 ${hintsLeft}번 남았어요.` : ' 이 판의 힌트를 다 썼어요.';
+  setTip((used + n0 > L.par ? '별 3개는 어려워졌지만 아직 깰 수 있어요. 빛나는 블록부터!' : '빛나는 블록을 쳐 보세요.') + rest);
+}
+
+function openOv(html) { $('card').innerHTML = html; $('ov').hidden = false; }
+function closeOv() { $('ov').hidden = true; }
+function starRow(n) { return `<div class="stars">${[0, 1, 2].map(k => `<i class="${k < n ? 'on' : ''}" style="animation-delay:${k * .12}s">★</i>`).join('')}</div>`; }
+
+function win() {
+  const stars = used <= L.par ? 3 : 2;
+  save.stars[li] = Math.max(save.stars[li] || 0, stars); store();
+  sfx.win(); buzz(30);
+  const last = li === LEVELS.length - 1;
+  openOv(`${starRow(stars)}
+    <h2>${stars === 3 ? '완벽해요!' : '판을 비웠어요!'}</h2>
+    <p>최소 ${L.par}번 · 내 기록 ${used}번</p>
+    ${last ? `<p>준비된 ${LEVELS.length}개 레벨을 모두 깼어요.</p>` : ''}
+    <div class="btns">
+      ${last ? '<button class="btn main" data-a="levels">레벨 고르기</button>' : '<button class="btn main" data-a="next">다음 레벨</button>'}
+      <button class="btn" data-a="reset">다시 하기</button>
+    </div>`);
+}
+function fail() {
+  sfx.fail();
+  openOv(`<h2>탭을 다 썼어요</h2>
+    <p>블록이 ${popc(mask)}개 남았어요. 한 번 되돌려서 다른 블록을 쳐 보세요.</p>
+    <div class="btns">
+      <button class="btn main" data-a="undo">되돌리기</button>
+      <button class="btn" data-a="reset">처음부터</button>
+    </div>`);
+}
+function levels() {
+  if (busy) return;
+  const tiles = LEVELS.map((_, k) => {
+    const open = k === 0 || save.stars[k - 1] || save.stars[k];
+    const st = save.stars[k] || 0;
+    return `<button class="lv${k === li ? ' cur' : ''}" data-lv="${k}" ${open ? '' : 'disabled'}><b>${k + 1}</b><small>${st ? '★'.repeat(st) : (open ? '' : '잠김')}</small></button>`;
+  }).join('');
+  openOv(`<h2>레벨 고르기</h2><div class="gridbox"><div class="grid">${tiles}</div></div><div class="btns"><button class="btn" data-a="close">닫기</button></div>`);
+}
+$('card').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.lv) { closeOv(); setupLevel(+b.dataset.lv); return; }
+  const a = b.dataset.a;
+  if (a === 'next') { closeOv(); setupLevel(li + 1); }
+  else if (a === 'reset') reset();
+  else if (a === 'undo') undo();
+  else if (a === 'levels') levels();
+  else if (a === 'close') closeOv();
+});
+$('btnUndo').onclick = undo;
+$('btnReset').onclick = reset;
+$('btnHint').onclick = hint;
+$('btnLevels').onclick = levels;
+$('btnSound').onclick = () => { save.mute = !save.mute; store(); if (!save.mute) audioInit(); updateUI(); };
+
+// 소리
+let ac = null;
+function audioInit() {
+  if (ac || save.mute) return;
+  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
+}
+function tone(f, t0, dur, type, vol) {
+  if (!ac || save.mute) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + t0;
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + .03);
+}
+function whoosh() {
+  if (!ac || save.mute) return;
+  const len = Math.floor(ac.sampleRate * .22), buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain(), t = ac.currentTime;
+  src.buffer = buf; bp.type = 'bandpass'; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(500, t); bp.frequency.exponentialRampToValueAtTime(2400, t + .2);
+  g.gain.value = .16; src.connect(bp).connect(g).connect(ac.destination); src.start(t);
+}
+const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.5, 1568, 1760, 2093];
+const sfx = {
+  tap: () => tone(330, 0, .07, 'sine', .14),
+  hit: j => tone(SCALE[Math.min(j, SCALE.length - 1)], 0, .2, 'triangle', .22),
+  exit: whoosh,
+  win: () => [0, 2, 4, 7].forEach((k, x) => tone(SCALE[k], x * .09, .32, 'triangle', .2)),
+  fail: () => { tone(330, 0, .18, 'sine', .14); tone(247, .16, .3, 'sine', .14); }
+};
+function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+
+// 시작
+function firstOpen() { for (let k = 0; k < LEVELS.length; k++) if (!save.stars[k]) return k; return 0; }
+function start(data) {
+  const ok = data && Number.isInteger(data.li) && data.li >= 0 && data.li < LEVELS.length;
+  setupLevel(ok ? data.li : firstOpen(), ok ? data : null);
+}
+try { window.claude?.hot?.snapshot?.(() => ({ li, mask, hist, used, hintsLeft })); } catch (e) {}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+<script>
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>

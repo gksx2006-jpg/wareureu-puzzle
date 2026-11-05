@@ -1,0 +1,30 @@
+{
+  "name": "와르르 연쇄",
+  "short_name": "와르르",
+  "description": "블록을 톡 치면 화살표 방향으로 날아가 부딪힌 블록을 줄줄이 날려 보내는 연쇄 퍼즐.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#141a33",
+  "theme_color": "#141a33",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
